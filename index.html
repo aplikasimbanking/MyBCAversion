@@ -1,0 +1,2271 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MyBCA Android - Simulasi M-Banking Pembelajaran</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F4F6F9;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Tampilan Penuh Portrait tanpa bingkai atau status bar perangkat */
+        #app-container {
+            width: 100%;
+            height: 100%;
+            background-color: #F4F6F9;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Pada layar sangat lebar (desktop), tetap tampil penuh tinggi secara portrait terpusat dengan halus */
+        @media (min-width: 640px) {
+            body {
+                background-color: #cbd5e1;
+                display: flex;
+                justify-content: center;
+            }
+            #app-container {
+                max-width: 480px;
+                height: 100vh;
+                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+            }
+        }
+        /* Custom Scrollbar */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Gradient Utama MyBCA */
+        .bg-mybca-gradient {
+            background: linear-gradient(135deg, #003B70 0%, #005A9C 60%, #0077CC 100%);
+        }
+        .bg-card-gradient {
+            background: linear-gradient(120deg, #002B54 0%, #00529B 50%, #0284C7 100%);
+        }
+        /* Animasi Halus */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.25s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <!-- Toast / Custom Notification Modal (Pengganti Alert) -->
+    <div id="toast-box" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 hidden w-11/12 max-w-[420px] transition-all duration-300">
+        <div id="toast-content" class="bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-sm font-medium">
+            <i data-lucide="info" class="w-5 h-5 text-sky-400 shrink-0"></i>
+            <span id="toast-message">Pesan notifikasi</span>
+        </div>
+    </div>
+
+    <!-- Custom Modal Dialog (Konfirmasi / Biometrik / PIN Admin) -->
+    <div id="custom-modal" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs z-40 hidden flex items-center justify-center p-5">
+        <div id="modal-body" class="bg-white w-full max-w-[400px] rounded-3xl p-6 shadow-2xl animate-fade-in">
+            <!-- Konten modal dirender dinamis -->
+        </div>
+    </div>
+
+    <!-- Main Screen Viewport -->
+    <div id="screen-content" class="flex-1 flex flex-col overflow-hidden relative">
+        <!-- Konten halaman dirender dinamis oleh JavaScript -->
+    </div>
+
+    <!-- Bottom Navigation Bar (Muncul hanya saat sudah login di halaman utama) -->
+    <div id="bottom-nav" class="hidden bg-white border-t border-slate-200 px-2 py-2 pb-3 flex justify-around items-center z-20 shrink-0">
+        <button onclick="navigate('home')" class="nav-btn flex flex-col items-center gap-1 p-1.5 text-slate-400 hover:text-[#003B70] transition" data-tab="home">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-[10px] font-semibold">Beranda</span>
+        </button>
+        <button onclick="navigate('history')" class="nav-btn flex flex-col items-center gap-1 p-1.5 text-slate-400 hover:text-[#003B70] transition" data-tab="history">
+            <i data-lucide="receipt" class="w-5 h-5"></i>
+            <span class="text-[10px] font-semibold">Riwayat</span>
+        </button>
+        <button onclick="navigate('qris')" class="flex flex-col items-center -mt-6">
+            <div class="w-14 h-14 rounded-full bg-mybca-gradient text-white flex items-center justify-center shadow-lg shadow-blue-900/30 border-4 border-white active:scale-95 transition">
+                <i data-lucide="qr-code" class="w-6 h-6"></i>
+            </div>
+            <span class="text-[10px] font-bold text-[#003B70] mt-1">QRIS</span>
+        </button>
+        <button onclick="navigate('notifications')" class="nav-btn relative flex flex-col items-center gap-1 p-1.5 text-slate-400 hover:text-[#003B70] transition" data-tab="notifications">
+            <i data-lucide="bell" class="w-5 h-5"></i>
+            <span id="nav-notif-dot" class="hidden absolute top-1.5 right-2.5 w-2 h-2 bg-red-500 rounded-full"></span>
+            <span class="text-[10px] font-semibold">Notifikasi</span>
+        </button>
+        <button onclick="navigate('account')" class="nav-btn flex flex-col items-center gap-1 p-1.5 text-slate-400 hover:text-[#003B70] transition" data-tab="account">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span class="text-[10px] font-semibold">Akun</span>
+        </button>
+    </div>
+</div>
+
+<script>
+/**
+ * ============================================================================
+ * MYBCA ANDROID - SIMULASI M-BANKING PEMBELAJARAN
+ * ============================================================================
+ * Fitur Lengkap:
+ * 1. Tampilan Penuh Portrait tanpa status bar perangkat
+ * 2. Onboarding 3 Slide Interaktif
+ * 3. Login Bersih + Simulasi Biometrik + PIN Transaksi
+ * 4. Panel Admin Rahasia (Ketuk 3x Logo MyBCA Android di Login -> PIN: 146700)
+ * 5. Pendaftaran Bertahap 4 Langkah + Generate Rekening + Link WA Admin (085603659730)
+ * 6. Transfer Real-Time cukup dengan mengetik Nomor Rekening (Auto-Lookup Data Penerima)
+ * 7. Unduh e-Statement Asli (CSV / Laporan Cetak) secara real-time
+ * 8. Pengaturan Limit Harian Kartu, Simpan Rekening Favorit, Pembayaran, TopUp, QRIS
+ */
+
+// Konstanta Konfigurasi Pembelajaran
+const ADMIN_PIN = "146700";
+const ADMIN_WA_NUMBER = "6285603659730";
+const STORAGE_KEY = "mybca_android_sim_db_v2";
+
+// State Aplikasi Global
+let appState = {
+    currentScreen: 'onboarding',
+    onboardingStep: 0,
+    registerStep: 1,
+    registerDraft: {
+        product: 'Tahapan BCA',
+        fullName: '',
+        birthInfo: '',
+        phone: '',
+        address: '',
+        job: '',
+        userId: '',
+        password: '',
+        pin: ''
+    },
+    registeredResult: null,
+    currentUser: null,
+    pendingLoginUser: null,
+    showBalance: true,
+    logoTapCount: 0,
+    logoTapTimer: null,
+    lastReceipt: null,
+    estatementPeriod: '1 Bulan'
+};
+
+// Inisialisasi Database Lokal
+function loadDatabase() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+        const parsed = JSON.parse(raw);
+        // Pastikan setiap user memiliki properti array favorites
+        parsed.users.forEach(u => {
+            if (!u.favorites) u.favorites = [];
+            if (!u.cardLimit) u.cardLimit = 10000000;
+        });
+        return parsed;
+    }
+    const initialDB = {
+        users: [
+            {
+                id: "usr-default-01",
+                accountNumber: "8810293847",
+                product: "Tahapan BCA",
+                fullName: "Andhika Putra",
+                birthInfo: "Semarang, 12 Mei 1998",
+                phone: "081234567890",
+                address: "Jl. Pemuda No. 10, Semarang",
+                job: "Karyawan Swasta",
+                userId: "andhika123",
+                password: "123",
+                pin: "123456",
+                balance: 5000000,
+                status: "ACTIVE",
+                cardActive: true,
+                cardLimit: 15000000,
+                favorites: [],
+                createdAt: new Date().toLocaleDateString('id-ID'),
+                transactions: [
+                    {
+                        id: "TRX-9001",
+                        type: "CREDIT",
+                        category: "Transfer",
+                        title: "Setoran Awal Rekening",
+                        subtitle: "Pembukaan Rekening Baru",
+                        amount: 5000000,
+                        date: new Date().toLocaleDateString('id-ID') + ", 08:00"
+                    }
+                ],
+                notifications: [
+                    {
+                        id: "NOTIF-1",
+                        category: "Informasi",
+                        title: "Selamat Datang di MyBCA Android",
+                        message: "Aplikasi simulasi m-banking untuk keperluan pembelajaran siap digunakan.",
+                        date: "Hari ini",
+                        unread: true
+                    }
+                ]
+            }
+        ]
+    };
+    saveDatabase(initialDB);
+    return initialDB;
+}
+
+function saveDatabase(db) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+}
+
+function getFreshCurrentUser() {
+    if (!appState.currentUser) return null;
+    const db = loadDatabase();
+    const updated = db.users.find(u => u.id === appState.currentUser.id);
+    appState.currentUser = updated || null;
+    return appState.currentUser;
+}
+
+// Utilitas Format Rupiah
+function formatRupiah(num) {
+    return "Rp " + Number(num || 0).toLocaleString('id-ID');
+}
+
+// Toast Notification Pengganti Alert()
+function showToast(msg) {
+    const toastBox = document.getElementById('toast-box');
+    const toastMsg = document.getElementById('toast-message');
+    toastMsg.textContent = msg;
+    toastBox.classList.remove('hidden');
+    setTimeout(() => {
+        toastBox.classList.add('hidden');
+    }, 3200);
+}
+
+// Modal Helper
+function openModal(htmlContent) {
+    const modal = document.getElementById('custom-modal');
+    const body = document.getElementById('modal-body');
+    body.innerHTML = htmlContent;
+    modal.classList.remove('hidden');
+    lucide.createIcons();
+}
+
+function closeModal() {
+    document.getElementById('custom-modal').classList.add('hidden');
+}
+
+// Navigasi Utama
+function navigate(screen, params = {}) {
+    appState.currentScreen = screen;
+    Object.assign(appState, params);
+    render();
+}
+
+// ============================================================================
+// LOGIKA RAHASIA PANEL ADMIN (TAP LOGO 3X -> PIN 146700)
+// ============================================================================
+function handleLogoTap() {
+    appState.logoTapCount++;
+    clearTimeout(appState.logoTapTimer);
+    
+    if (appState.logoTapCount >= 3) {
+        appState.logoTapCount = 0;
+        openAdminPinModal();
+    } else {
+        appState.logoTapTimer = setTimeout(() => {
+            appState.logoTapCount = 0;
+        }, 1200);
+    }
+}
+
+function openAdminPinModal() {
+    openModal(`
+        <div class="text-center">
+            <div class="w-12 h-12 bg-blue-50 text-[#003B70] rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <i data-lucide="shield-alert" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800">Akses Panel Admin</h3>
+            <p class="text-xs text-slate-500 mt-1 mb-4">Masukkan 6-Digit PIN Otorisasi Admin</p>
+            <input type="password" id="admin-pin-input" maxlength="6" inputmode="numeric" placeholder="••••••" 
+                class="w-full text-center tracking-[0.5em] text-xl font-bold py-3 border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B70] mb-4">
+            <div class="flex gap-2">
+                <button onclick="closeModal()" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold">Batal</button>
+                <button onclick="verifyAdminPin()" class="flex-1 py-2.5 rounded-xl bg-[#003B70] text-white text-sm font-semibold">Masuk Panel</button>
+            </div>
+        </div>
+    `);
+    setTimeout(() => document.getElementById('admin-pin-input')?.focus(), 100);
+}
+
+function verifyAdminPin() {
+    const val = document.getElementById('admin-pin-input')?.value;
+    if (val === ADMIN_PIN) {
+        closeModal();
+        showToast("Akses Panel Admin Diterima");
+        navigate('admin_panel');
+    } else {
+        showToast("PIN Admin salah!");
+    }
+}
+
+// ============================================================================
+// RENDERER UTAMA PER HALAMAN
+// ============================================================================
+function render() {
+    const container = document.getElementById('screen-content');
+    const bottomNav = document.getElementById('bottom-nav');
+
+    const mainTabs = ['home', 'history', 'qris', 'notifications', 'account'];
+    if (appState.currentUser && mainTabs.includes(appState.currentScreen)) {
+        bottomNav.classList.remove('hidden');
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            if (btn.dataset.tab === appState.currentScreen) {
+                btn.classList.remove('text-slate-400');
+                btn.classList.add('text-[#003B70]');
+            } else {
+                btn.classList.add('text-slate-400');
+                btn.classList.remove('text-[#003B70]');
+            }
+        });
+        const user = getFreshCurrentUser();
+        const hasUnread = user?.notifications?.some(n => n.unread);
+        const dot = document.getElementById('nav-notif-dot');
+        if (hasUnread) dot.classList.remove('hidden');
+        else dot.classList.add('hidden');
+    } else {
+        bottomNav.classList.add('hidden');
+    }
+
+    switch (appState.currentScreen) {
+        case 'onboarding': container.innerHTML = renderOnboarding(); break;
+        case 'login': container.innerHTML = renderLogin(); break;
+        case 'pin_login': container.innerHTML = renderPinLogin(); break;
+        case 'register': container.innerHTML = renderRegister(); break;
+        case 'admin_panel': container.innerHTML = renderAdminPanel(); break;
+        case 'home': container.innerHTML = renderHome(); break;
+        case 'rekening': container.innerHTML = renderRekening(); break;
+        case 'transfer': container.innerHTML = renderTransfer(); break;
+        case 'payment': container.innerHTML = renderPayment(); break;
+        case 'topup': container.innerHTML = renderTopUp(); break;
+        case 'qris': container.innerHTML = renderQRIS(); break;
+        case 'history': container.innerHTML = renderHistory(); break;
+        case 'notifications': container.innerHTML = renderNotifications(); break;
+        case 'account': container.innerHTML = renderAccount(); break;
+        case 'estatement': container.innerHTML = renderEStatement(); break;
+        case 'card_settings': container.innerHTML = renderCardSettings(); break;
+        case 'investment': container.innerHTML = renderInvestment(); break;
+        case 'help': container.innerHTML = renderHelp(); break;
+        default: container.innerHTML = renderLogin();
+    }
+
+    lucide.createIcons();
+}
+
+// ----------------------------------------------------------------------------
+// 1. ONBOARDING (3 SLIDE)
+// ----------------------------------------------------------------------------
+function renderOnboarding() {
+    const slides = [
+        {
+            icon: 'wallet',
+            title: 'Satu aplikasi untuk semua kebutuhan finansial',
+            desc: 'Simulasi perbankan digital modern untuk pembelajaran alur transaksi, tabungan, dan manajemen saldo.',
+            btn: 'Mulai'
+        },
+        {
+            icon: 'shield-check',
+            title: 'Transaksi lebih aman dengan berbagai fitur keamanan',
+            desc: 'Dilengkapi simulasi User ID, PIN Transaksi 6-digit, Biometrik, serta kontrol pengaturan kartu.',
+            btn: 'Lanjut'
+        },
+        {
+            icon: 'send',
+            title: 'Kelola keuangan lebih mudah dan praktis di MyBCA Android',
+            desc: 'Uji coba pendaftaran nasabah baru hingga simulasi transfer real-time antar rekening.',
+            btn: 'Mulai Sekarang'
+        }
+    ];
+    const s = slides[appState.onboardingStep];
+
+    return `
+        <div class="flex-1 bg-mybca-gradient text-white flex flex-col justify-between p-6 overflow-y-auto no-scrollbar relative z-10">
+            <div class="flex justify-end items-center pt-1 relative z-20">
+                <button type="button" onclick="navigate('login')" class="text-xs font-semibold text-white/90 hover:text-white px-4 py-2 rounded-full bg-white/15 active:scale-95 transition cursor-pointer">Lewati</button>
+            </div>
+
+            <div class="text-center my-auto px-2 py-4">
+                <div class="mb-6">
+                    <h1 class="text-3xl font-extrabold tracking-tight italic">MyBCA <span class="text-sky-300 font-bold not-italic text-xl">Android</span></h1>
+                </div>
+
+                <div class="w-36 h-36 mx-auto bg-white/10 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 shadow-2xl mb-6">
+                    <i data-lucide="${s.icon}" class="w-16 h-16 text-sky-200"></i>
+                </div>
+
+                <h2 class="text-lg font-bold leading-snug mb-2.5">${s.title}</h2>
+                <p class="text-xs text-blue-100 leading-relaxed">${s.desc}</p>
+            </div>
+
+            <div class="pt-2 pb-4 relative z-20">
+                <div class="flex justify-center gap-2 mb-5">
+                    ${slides.map((_, i) => `
+                        <button type="button" onclick="appState.onboardingStep=${i}; render();" class="h-2 rounded-full transition-all cursor-pointer ${i === appState.onboardingStep ? 'w-7 bg-white' : 'w-2.5 bg-white/40'}"></button>
+                    `).join('')}
+                </div>
+                <button type="button" id="onboarding-next-btn" onclick="nextOnboarding()" class="w-full py-4 bg-white hover:bg-sky-50 text-[#003B70] font-extrabold rounded-full shadow-xl active:scale-95 transition text-sm cursor-pointer">
+                    ${s.btn}
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function nextOnboarding() {
+    if (appState.onboardingStep < 2) {
+        appState.onboardingStep = Number(appState.onboardingStep) + 1;
+        render();
+    } else {
+        navigate('login');
+    }
+}
+
+// ----------------------------------------------------------------------------
+// 2. HALAMAN LOGIN (BERSIH TANPA TULISAN AKUN DEMO) & AKSES PANEL ADMIN
+// ----------------------------------------------------------------------------
+function renderLogin() {
+    return `
+        <div class="flex-1 bg-mybca-gradient flex flex-col justify-between overflow-y-auto no-scrollbar">
+            <!-- Header Logo (Ketuk 3x untuk Panel Admin) -->
+            <div class="pt-12 pb-8 px-6 text-center text-white select-none">
+                <div onclick="handleLogoTap()" class="inline-block cursor-pointer active:scale-95 transition">
+                    <h1 class="text-3xl font-extrabold tracking-tight italic">MyBCA <span class="text-sky-300 font-bold not-italic text-xl">Android</span></h1>
+                </div>
+                <p class="text-sm text-blue-100 mt-4 font-medium">Halo, Selamat datang di MyBCA Android</p>
+            </div>
+
+            <!-- Form Card -->
+            <div class="bg-[#F4F6F9] rounded-t-[32px] flex-1 p-6 flex flex-col justify-between shadow-2xl animate-fade-in">
+                <div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+                        <div>
+                            <label class="text-xs font-semibold text-slate-500 block mb-1.5">BCA ID (User ID)</label>
+                            <div class="relative">
+                                <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5"></i>
+                                <input type="text" id="login-userid" placeholder="Masukkan User ID" 
+                                    class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#003B70]">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-slate-500 block mb-1.5">Password</label>
+                            <div class="relative">
+                                <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5"></i>
+                                <input type="password" id="login-password" placeholder="Masukkan Password" 
+                                    class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#003B70]">
+                                <button type="button" onclick="toggleLoginPass()" class="absolute right-3.5 top-3.5 text-slate-400">
+                                    <i data-lucide="eye" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end items-center text-xs">
+                            <button onclick="showToast('Hubungi Admin via WhatsApp untuk bantuan lupa password')" class="text-[#00529B] font-semibold">Lupa password?</button>
+                        </div>
+
+                        <button onclick="handleLoginSubmit()" class="w-full py-3 bg-[#00529B] hover:bg-[#003B70] text-white font-bold rounded-full shadow-md shadow-blue-900/20 transition text-sm">
+                            Masuk
+                        </button>
+                    </div>
+
+                    <!-- Login Biometrik -->
+                    <div class="mt-6 text-center">
+                        <button onclick="triggerBiometricModal()" class="inline-flex flex-col items-center gap-2 text-slate-600 hover:text-[#003B70] transition">
+                            <span class="text-xs font-semibold text-[#00529B]">Login dengan biometrik</span>
+                            <div class="w-14 h-14 rounded-2xl bg-white shadow-sm border border-slate-200 flex items-center justify-center text-[#003B70]">
+                                <i data-lucide="fingerprint" class="w-8 h-8"></i>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Link Daftar Akun Baru -->
+                <div class="text-center pt-6 pb-2">
+                    <p class="text-xs text-slate-500">
+                        Belum punya akun? 
+                        <button onclick="startRegistration()" class="text-[#00529B] font-bold hover:underline ml-1">Daftar sekarang</button>
+                    </p>
+                    <p class="text-[10px] text-slate-400 mt-3">Aplikasi Simulasi Pembelajaran M-Banking</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function toggleLoginPass() {
+    const inp = document.getElementById('login-password');
+    if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function handleLoginSubmit() {
+    const userId = document.getElementById('login-userid')?.value.trim();
+    const password = document.getElementById('login-password')?.value.trim();
+
+    if (!userId || !password) {
+        showToast("Harap isi BCA ID dan Password!");
+        return;
+    }
+
+    const db = loadDatabase();
+    const foundUser = db.users.find(u => u.userId.toLowerCase() === userId.toLowerCase() && u.password === password);
+
+    if (!foundUser) {
+        showToast("BCA ID atau Password tidak sesuai!");
+        return;
+    }
+
+    if (foundUser.status !== 'ACTIVE') {
+        openModal(`
+            <div class="text-center">
+                <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="clock" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-base font-bold text-slate-800">Akun Menunggu ACC Admin</h3>
+                <p class="text-xs text-slate-500 mt-2 leading-relaxed">
+                    Rekening <b>${foundUser.accountNumber}</b> a.n. <b>${foundUser.fullName}</b> berstatus <b>Pending</b>. Silakan konfirmasi ke Admin WhatsApp untuk aktivasi akun.
+                </p>
+                <div class="mt-4 space-y-2">
+                    <a href="${buildWhatsAppLink(foundUser)}" target="_blank" class="block w-full py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold">
+                        Hubungi Admin WhatsApp (085603659730)
+                    </a>
+                    <button onclick="closeModal()" class="w-full py-2 text-slate-500 text-xs font-semibold">Tutup</button>
+                </div>
+            </div>
+        `);
+        return;
+    }
+
+    appState.pendingLoginUser = foundUser;
+    navigate('pin_login');
+}
+
+function triggerBiometricModal() {
+    const db = loadDatabase();
+    const activeUsers = db.users.filter(u => u.status === 'ACTIVE');
+    if (activeUsers.length === 0) {
+        showToast("Belum ada akun aktif untuk biometrik.");
+        return;
+    }
+    const targetUser = activeUsers[activeUsers.length - 1];
+    openModal(`
+        <div class="text-center py-2">
+            <h3 class="text-base font-bold text-slate-800">Masuk dengan Biometrik</h3>
+            <p class="text-xs text-slate-500 mt-1 mb-5">Sentuh sensor sidik jari untuk masuk sebagai <b>${targetUser.fullName}</b></p>
+            <button onclick="completeBiometricLogin('${targetUser.id}')" class="w-20 h-20 rounded-full bg-blue-50 text-[#003B70] flex items-center justify-center mx-auto border-2 border-[#00529B] animate-pulse active:scale-90 transition">
+                <i data-lucide="fingerprint" class="w-11 h-11"></i>
+            </button>
+            <p class="text-[11px] text-slate-400 mt-3">Ketuk ikon sidik jari di atas</p>
+            <button onclick="closeModal()" class="mt-5 w-full py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold">Batal</button>
+        </div>
+    `);
+}
+
+function completeBiometricLogin(userId) {
+    closeModal();
+    const db = loadDatabase();
+    const user = db.users.find(u => u.id === userId);
+    if (user) {
+        appState.currentUser = user;
+        appState.pendingLoginUser = null;
+        showToast(`Selamat datang, ${user.fullName}`);
+        navigate('home');
+    }
+}
+
+// ----------------------------------------------------------------------------
+// 3. LAYAR INPUT PIN LOGIN
+// ----------------------------------------------------------------------------
+function renderPinLogin() {
+    const user = appState.pendingLoginUser;
+    if (!user) return renderLogin();
+
+    return `
+        <div class="flex-1 bg-white flex flex-col justify-between p-6 animate-fade-in">
+            <div>
+                <button onclick="navigate('login')" class="p-2 -ml-2 text-slate-600 hover:text-[#003B70]">
+                    <i data-lucide="arrow-left" class="w-6 h-6"></i>
+                </button>
+                <div class="text-center mt-6">
+                    <h2 class="text-lg font-bold text-slate-800">Masukkan PIN MyBCA</h2>
+                    <p class="text-xs text-slate-500 mt-1">Akun: <span class="font-semibold text-[#003B70]">${user.userId}</span></p>
+                </div>
+
+                <!-- Indikator 6 Titik PIN -->
+                <div class="flex justify-center gap-3.5 my-8" id="pin-dots">
+                    ${[0,1,2,3,4,5].map(i => `<div class="w-3.5 h-3.5 rounded-full border-2 border-[#003B70] pin-dot"></div>`).join('')}
+                </div>
+                <input type="hidden" id="pin-buffer" value="">
+            </div>
+
+            <!-- Keypad Numerik -->
+            <div class="grid grid-cols-3 gap-3 pb-4">
+                ${[1,2,3,4,5,6,7,8,9].map(num => `
+                    <button onclick="pressPinKey('${num}')" class="h-14 rounded-2xl bg-slate-50 hover:bg-blue-50 active:bg-blue-100 text-xl font-bold text-slate-800 transition">
+                        ${num}
+                    </button>
+                `).join('')}
+                <div></div>
+                <button onclick="pressPinKey('0')" class="h-14 rounded-2xl bg-slate-50 hover:bg-blue-50 active:bg-blue-100 text-xl font-bold text-slate-800 transition">0</button>
+                <button onclick="backspacePinKey()" class="h-14 rounded-2xl bg-slate-50 hover:bg-red-50 text-slate-600 flex items-center justify-center transition">
+                    <i data-lucide="delete" class="w-6 h-6"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function pressPinKey(digit) {
+    const buf = document.getElementById('pin-buffer');
+    if (!buf || buf.value.length >= 6) return;
+    buf.value += digit;
+    updatePinDots(buf.value.length);
+
+    if (buf.value.length === 6) {
+        setTimeout(() => {
+            if (buf.value === appState.pendingLoginUser.pin) {
+                appState.currentUser = appState.pendingLoginUser;
+                appState.pendingLoginUser = null;
+                showToast("Login Berhasil!");
+                navigate('home');
+            } else {
+                showToast("PIN salah! Silakan coba lagi.");
+                buf.value = "";
+                updatePinDots(0);
+            }
+        }, 150);
+    }
+}
+
+function backspacePinKey() {
+    const buf = document.getElementById('pin-buffer');
+    if (!buf) return;
+    buf.value = buf.value.slice(0, -1);
+    updatePinDots(buf.value.length);
+}
+
+function updatePinDots(len) {
+    document.querySelectorAll('.pin-dot').forEach((dot, idx) => {
+        if (idx < len) dot.classList.add('bg-[#003B70]');
+        else dot.classList.remove('bg-[#003B70]');
+    });
+}
+
+// ----------------------------------------------------------------------------
+// 4. ALUR PENDAFTARAN AKUN BARU (4 LANGKAH + ACC WHATSAPP ADMIN)
+// ----------------------------------------------------------------------------
+function startRegistration() {
+    appState.registerStep = 1;
+    appState.registerDraft = {
+        product: 'Tahapan BCA',
+        fullName: '',
+        birthInfo: '',
+        phone: '',
+        address: '',
+        job: 'Pelajar / Mahasiswa',
+        userId: '',
+        password: '',
+        pin: ''
+    };
+    navigate('register');
+}
+
+function buildWhatsAppLink(user) {
+    const text = `Halo Admin MyBCA Android, saya ingin konfirmasi aktivasi akun baru:%0A%0A` +
+        `• Nama Lengkap: ${encodeURIComponent(user.fullName)}%0A` +
+        `• Produk Tabungan: ${encodeURIComponent(user.product)}%0A` +
+        `• No. Rekening: ${encodeURIComponent(user.accountNumber)}%0A` +
+        `• BCA ID (User ID): ${encodeURIComponent(user.userId)}%0A` +
+        `• No. HP: ${encodeURIComponent(user.phone)}%0A` +
+        `• Pekerjaan: ${encodeURIComponent(user.job)}%0A%0A` +
+        `Mohon dibantu ACC aktivasi akun saya. Terima kasih.`;
+    return `https://wa.me/${ADMIN_WA_NUMBER}?text=${text}`;
+}
+
+function renderRegister() {
+    const step = appState.registerStep;
+    const d = appState.registerDraft;
+
+    let stepContent = '';
+
+    if (step === 1) {
+        const products = [
+            { name: 'Tahapan BCA', desc: 'Tabungan reguler fleksibel untuk kemudahan transaksi harian & transfer.', badge: 'Populer' },
+            { name: 'Tahapan Xpresi', desc: 'Cocok untuk anak muda & pelajar dengan desain kartu modern & praktis.', badge: 'Praktis' },
+            { name: 'Tahapan Gold', desc: 'Limit transaksi lebih besar untuk menunjang kebutuhan bisnis & usaha.', badge: 'Prioritas' }
+        ];
+        stepContent = `
+            <div class="space-y-3">
+                <h3 class="text-base font-bold text-slate-800">Langkah 1: Pilih Jenis Tabungan</h3>
+                <p class="text-xs text-slate-500 mb-3">Pilih jenis produk tabungan yang ingin Anda buka.</p>
+                ${products.map(p => `
+                    <div onclick="selectProduct('${p.name}')" class="p-4 rounded-2xl border-2 cursor-pointer transition ${d.product === p.name ? 'border-[#003B70] bg-blue-50/60' : 'border-slate-200 bg-white'}">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-sm text-slate-800">${p.name}</span>
+                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#003B70] text-white">${p.badge}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 leading-relaxed">${p.desc}</p>
+                    </div>
+                `).join('')}
+            </div>
+            <button onclick="nextRegisterStep(2)" class="w-full py-3.5 bg-[#00529B] text-white font-bold rounded-full shadow-md mt-6 text-sm">
+                Lanjutkan
+            </button>
+        `;
+    } else if (step === 2) {
+        stepContent = `
+            <div class="space-y-3.5">
+                <h3 class="text-base font-bold text-slate-800">Langkah 2: Data Diri Nasabah</h3>
+                <p class="text-xs text-slate-500">Lengkapi identitas diri untuk pembuatan rekening baru.</p>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Nama Lengkap *</label>
+                    <input type="text" id="reg-fullname" value="${d.fullName}" placeholder="Masukkan nama lengkap sesuai KTP" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Tempat & Tanggal Lahir *</label>
+                    <input type="text" id="reg-birth" value="${d.birthInfo}" placeholder="Contoh: Jakarta, 17 Agustus 2000" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Nomor Handphone *</label>
+                    <input type="tel" id="reg-phone" value="${d.phone}" placeholder="Contoh: 08123456789" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Alamat Domisili *</label>
+                    <textarea id="reg-address" rows="2" placeholder="Masukkan alamat lengkap saat ini" class="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm">${d.address}</textarea>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Pekerjaan *</label>
+                    <select id="reg-job" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm">
+                        <option value="Pelajar / Mahasiswa" ${d.job === 'Pelajar / Mahasiswa' ? 'selected' : ''}>Pelajar / Mahasiswa</option>
+                        <option value="Karyawan Swasta" ${d.job === 'Karyawan Swasta' ? 'selected' : ''}>Karyawan Swasta</option>
+                        <option value="Wiraswasta / Pengusaha" ${d.job === 'Wiraswasta / Pengusaha' ? 'selected' : ''}>Wiraswasta / Pengusaha</option>
+                        <option value="ASN / PNS" ${d.job === 'ASN / PNS' ? 'selected' : ''}>ASN / PNS</option>
+                        <option value="Lainnya" ${d.job === 'Lainnya' ? 'selected' : ''}>Lainnya</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex gap-2 mt-6">
+                <button onclick="appState.registerStep=1; render();" class="flex-1 py-3 border border-slate-300 text-slate-600 font-bold rounded-full text-sm">Kembali</button>
+                <button onclick="saveStep2AndNext()" class="flex-[2] py-3 bg-[#00529B] text-white font-bold rounded-full shadow-md text-sm">Lanjutkan</button>
+            </div>
+        `;
+    } else if (step === 3) {
+        stepContent = `
+            <div class="space-y-4">
+                <h3 class="text-base font-bold text-slate-800">Langkah 3: Kredensial & Keamanan</h3>
+                <p class="text-xs text-slate-500">Buat BCA ID (User ID), Password, dan 6-Digit PIN Transaksi Anda.</p>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Buat BCA ID (User ID) *</label>
+                    <input type="text" id="reg-userid" value="${d.userId}" placeholder="Minimal 4 karakter tanpa spasi" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Buat Password Login *</label>
+                    <input type="password" id="reg-pass" value="${d.password}" placeholder="Masukkan password akun" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Buat 6-Digit PIN Transaksi *</label>
+                    <input type="password" id="reg-pin" maxlength="6" inputmode="numeric" value="${d.pin}" placeholder="6 angka (contoh: 112233)" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm tracking-widest font-bold">
+                </div>
+            </div>
+            <div class="flex gap-2 mt-6">
+                <button onclick="appState.registerStep=2; render();" class="flex-1 py-3 border border-slate-300 text-slate-600 font-bold rounded-full text-sm">Kembali</button>
+                <button onclick="submitNewAccount()" class="flex-[2] py-3 bg-[#00529B] text-white font-bold rounded-full shadow-md text-sm">Daftar Sekarang</button>
+            </div>
+        `;
+    } else if (step === 4) {
+        const res = appState.registeredResult;
+        stepContent = `
+            <div class="text-center py-2">
+                <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="hourglass" class="w-8 h-8"></i>
+                </div>
+                <span class="text-[11px] font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-800">STATUS: MENUNGGU ACC ADMIN</span>
+                <h3 class="text-lg font-bold text-slate-800 mt-3">Pendaftaran Berhasil Dibuat!</h3>
+                <p class="text-xs text-slate-500 mt-1">Silakan konfirmasi ke Admin WhatsApp agar akun Anda diaktifkan dan dapat digunakan untuk login.</p>
+
+                <div class="bg-white rounded-2xl p-4 border border-slate-200 text-left mt-4 space-y-2 text-xs">
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-400">Nomor Rekening</span>
+                        <span class="font-bold text-[#003B70] text-sm">${res.accountNumber}</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-400">Nama Nasabah</span>
+                        <span class="font-semibold text-slate-800">${res.fullName}</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-400">Jenis Tabungan</span>
+                        <span class="font-semibold text-slate-800">${res.product}</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-400">BCA ID</span>
+                        <span class="font-semibold text-slate-800">${res.userId}</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                        <span class="text-slate-400">Saldo Awal</span>
+                        <span class="font-bold text-slate-700">Rp 0</span>
+                    </div>
+                </div>
+
+                <a href="${buildWhatsAppLink(res)}" target="_blank" class="mt-5 w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-full shadow-lg flex items-center justify-center gap-2 text-xs transition">
+                    <i data-lucide="message-circle" class="w-4 h-4"></i>
+                    Konfirmasi ACC ke WhatsApp Admin (085603659730)
+                </a>
+
+                <button onclick="navigate('login')" class="mt-3 w-full py-3 bg-white border border-slate-200 text-slate-700 font-semibold rounded-full text-xs">
+                    Kembali ke Halaman Login
+                </button>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="flex-1 flex flex-col bg-[#F4F6F9] overflow-hidden">
+            <div class="bg-mybca-gradient text-white px-5 py-4 flex items-center gap-3 shrink-0">
+                <button onclick="navigate('login')" class="p-1 hover:bg-white/10 rounded-lg">
+                    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                </button>
+                <div>
+                    <h2 class="text-sm font-bold">Pembukaan Rekening Baru</h2>
+                    <p class="text-[11px] text-sky-200">Langkah ${step} dari 4</p>
+                </div>
+            </div>
+
+            <div class="w-full bg-slate-200 h-1.5">
+                <div class="bg-[#00529B] h-1.5 transition-all duration-300" style="width: ${step * 25}%"></div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-5 no-scrollbar animate-fade-in">
+                ${stepContent}
+            </div>
+        </div>
+    `;
+}
+
+function selectProduct(name) {
+    appState.registerDraft.product = name;
+    render();
+}
+
+function nextRegisterStep(next) {
+    appState.registerStep = next;
+    render();
+}
+
+function saveStep2AndNext() {
+    const fullName = document.getElementById('reg-fullname').value.trim();
+    const birthInfo = document.getElementById('reg-birth').value.trim();
+    const phone = document.getElementById('reg-phone').value.trim();
+    const address = document.getElementById('reg-address').value.trim();
+    const job = document.getElementById('reg-job').value;
+
+    if (!fullName || !birthInfo || !phone || !address) {
+        showToast("Harap lengkapi semua kolom data diri!");
+        return;
+    }
+
+    Object.assign(appState.registerDraft, { fullName, birthInfo, phone, address, job });
+    appState.registerStep = 3;
+    render();
+}
+
+function submitNewAccount() {
+    const userId = document.getElementById('reg-userid').value.trim();
+    const password = document.getElementById('reg-pass').value.trim();
+    const pin = document.getElementById('reg-pin').value.trim();
+
+    if (userId.length < 4 || userId.includes(' ')) {
+        showToast("BCA ID minimal 4 karakter tanpa spasi!");
+        return;
+    }
+    if (!password) {
+        showToast("Password tidak boleh kosong!");
+        return;
+    }
+    if (!/^\d{6}$/.test(pin)) {
+        showToast("PIN Transaksi harus 6 digit angka!");
+        return;
+    }
+
+    const db = loadDatabase();
+    if (db.users.some(u => u.userId.toLowerCase() === userId.toLowerCase())) {
+        showToast("BCA ID sudah digunakan, pilih yang lain!");
+        return;
+    }
+
+    // Generate 10-digit nomor rekening unik
+    const randomAcc = "88" + Math.floor(10000000 + Math.random() * 90000000).toString();
+
+    const newUser = {
+        id: "usr-" + Date.now(),
+        accountNumber: randomAcc,
+        product: appState.registerDraft.product,
+        fullName: appState.registerDraft.fullName,
+        birthInfo: appState.registerDraft.birthInfo,
+        phone: appState.registerDraft.phone,
+        address: appState.registerDraft.address,
+        job: appState.registerDraft.job,
+        userId,
+        password,
+        pin,
+        balance: 0,
+        status: "PENDING",
+        cardActive: true,
+        cardLimit: 10000000,
+        favorites: [],
+        createdAt: new Date().toLocaleDateString('id-ID'),
+        transactions: [],
+        notifications: [
+            {
+                id: "NOTIF-" + Date.now(),
+                category: "Informasi",
+                title: "Pendaftaran Berhasil",
+                message: `Rekening ${randomAcc} berhasil dibuat dan menunggu persetujuan Admin.`,
+                date: "Baru saja",
+                unread: true
+            }
+        ]
+    };
+
+    db.users.push(newUser);
+    saveDatabase(db);
+
+    appState.registeredResult = newUser;
+    appState.registerStep = 4;
+    render();
+}
+
+// ----------------------------------------------------------------------------
+// 5. PANEL ADMIN RAHASIA (PIN: 146700)
+// ----------------------------------------------------------------------------
+function renderAdminPanel() {
+    const db = loadDatabase();
+    const searchQuery = (appState.adminSearch || '').toLowerCase();
+    const filteredUsers = db.users.filter(u => 
+        u.accountNumber.includes(searchQuery) || 
+        u.fullName.toLowerCase().includes(searchQuery) ||
+        u.userId.toLowerCase().includes(searchQuery)
+    );
+
+    return `
+        <div class="flex-1 flex flex-col bg-slate-100 overflow-hidden">
+            <!-- Header Admin -->
+            <div class="bg-slate-900 text-white px-5 py-4 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center">
+                        <i data-lucide="shield" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold">Panel Admin MyBCA Android</h2>
+                        <p class="text-[10px] text-slate-400">Total Nasabah: ${db.users.length} Akun</p>
+                    </div>
+                </div>
+                <button onclick="navigate('login')" class="px-3 py-1.5 bg-red-500/20 text-red-300 rounded-xl text-xs font-semibold">
+                    Keluar
+                </button>
+            </div>
+
+            <!-- Search Bar Nomor Rekening / Nama -->
+            <div class="p-4 bg-white border-b border-slate-200 shrink-0">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                    <input type="text" oninput="appState.adminSearch = this.value; render();" value="${appState.adminSearch || ''}"
+                        placeholder="Masukkan No. Rekening / Nama Nasabah..." 
+                        class="w-full pl-10 pr-4 py-2 bg-slate-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#003B70]">
+                </div>
+            </div>
+
+            <!-- List Nasabah -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+                ${filteredUsers.length === 0 ? `<p class="text-center text-xs text-slate-400 py-8">Data nasabah tidak ditemukan.</p>` : ''}
+                ${filteredUsers.map(u => `
+                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-bold text-sm text-slate-800">${u.fullName}</h4>
+                                <p class="text-xs font-mono font-bold text-[#00529B] mt-0.5">Rek: ${u.accountNumber}</p>
+                                <p class="text-[11px] text-slate-500">${u.product} • ID: ${u.userId} (Pass: ${u.password} | PIN: ${u.pin})</p>
+                            </div>
+                            <span class="text-[10px] font-bold px-2.5 py-1 rounded-full ${u.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
+                                ${u.status}
+                            </span>
+                        </div>
+
+                        <div class="bg-slate-50 p-2.5 rounded-xl text-[11px] text-slate-600 space-y-1">
+                            <p><b>TTL:</b> ${u.birthInfo}</p>
+                            <p><b>HP:</b> ${u.phone} | <b>Pekerjaan:</b> ${u.job}</p>
+                            <p><b>Alamat:</b> ${u.address}</p>
+                        </div>
+
+                        <div class="flex justify-between items-center pt-1 border-t border-slate-100">
+                            <div>
+                                <span class="text-[10px] text-slate-400 block">Saldo Saat Ini</span>
+                                <span class="text-sm font-extrabold text-slate-800">${formatRupiah(u.balance)}</span>
+                            </div>
+                            <div class="flex gap-1.5">
+                                ${u.status === 'PENDING' ? `
+                                    <button onclick="adminApproveUser('${u.id}')" class="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-sm">
+                                        ACC Aktifkan
+                                    </button>
+                                ` : ''}
+                                <button onclick="openAdminBalanceModal('${u.id}')" class="px-3 py-1.5 bg-[#003B70] text-white rounded-xl text-xs font-bold shadow-sm">
+                                    Atur Saldo
+                                </button>
+                                <button onclick="deleteUserAdmin('${u.id}')" class="p-1.5 bg-rose-50 text-rose-600 rounded-xl" title="Hapus Akun">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function adminApproveUser(userId) {
+    const db = loadDatabase();
+    const user = db.users.find(u => u.id === userId);
+    if (user) {
+        user.status = 'ACTIVE';
+        user.notifications.unshift({
+            id: "NOTIF-" + Date.now(),
+            category: "Informasi",
+            title: "Akun Telah Diaktifkan",
+            message: "Selamat! Akun MyBCA Android Anda telah disetujui oleh Admin dan siap digunakan.",
+            date: "Baru saja",
+            unread: true
+        });
+        saveDatabase(db);
+        showToast(`Akun ${user.fullName} berhasil diaktifkan!`);
+        render();
+    }
+}
+
+function deleteUserAdmin(userId) {
+    const db = loadDatabase();
+    if (db.users.length <= 1) {
+        showToast("Minimal harus menyisakan 1 akun di sistem.");
+        return;
+    }
+    db.users = db.users.filter(u => u.id !== userId);
+    saveDatabase(db);
+    showToast("Akun berhasil dihapus.");
+    render();
+}
+
+function openAdminBalanceModal(userId) {
+    const db = loadDatabase();
+    const user = db.users.find(u => u.id === userId);
+    if (!user) return;
+
+    openModal(`
+        <div>
+            <h3 class="text-base font-bold text-slate-800">Kelola Saldo Nasabah</h3>
+            <p class="text-xs text-slate-500 mt-0.5">${user.fullName} (${user.accountNumber})</p>
+            <div class="mt-3 p-3 bg-blue-50 rounded-xl text-xs">
+                Saldo Saat Ini: <b class="text-[#003B70]">${formatRupiah(user.balance)}</b>
+            </div>
+            <div class="mt-3">
+                <label class="text-xs font-semibold text-slate-600 block mb-1">Nominal Saldo (Rp)</label>
+                <input type="number" id="admin-topup-amount" placeholder="Contoh: 500000" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm font-bold">
+            </div>
+            <div class="grid grid-cols-3 gap-1.5 mt-2">
+                <button onclick="document.getElementById('admin-topup-amount').value=100000" class="py-1.5 bg-slate-100 rounded-lg text-xs font-semibold">100rb</button>
+                <button onclick="document.getElementById('admin-topup-amount').value=500000" class="py-1.5 bg-slate-100 rounded-lg text-xs font-semibold">500rb</button>
+                <button onclick="document.getElementById('admin-topup-amount').value=1000000" class="py-1.5 bg-slate-100 rounded-lg text-xs font-semibold">1 Juta</button>
+            </div>
+            <div class="flex gap-2 mt-5">
+                <button onclick="executeAdminBalance('${user.id}', 'SET')" class="flex-1 py-2.5 border border-[#003B70] text-[#003B70] rounded-xl text-xs font-bold">Set Saldo</button>
+                <button onclick="executeAdminBalance('${user.id}', 'ADD')" class="flex-1 py-2.5 bg-[#003B70] text-white rounded-xl text-xs font-bold">+ Tambah Saldo</button>
+            </div>
+            <button onclick="closeModal()" class="w-full mt-2 py-2 text-xs text-slate-400 font-semibold">Batal</button>
+        </div>
+    `);
+}
+
+function executeAdminBalance(userId, mode) {
+    const amount = Number(document.getElementById('admin-topup-amount')?.value);
+    if (isNaN(amount) || amount < 0 || (mode === 'ADD' && amount <= 0)) {
+        showToast("Masukkan nominal saldo yang valid!");
+        return;
+    }
+    const db = loadDatabase();
+    const user = db.users.find(u => u.id === userId);
+    if (user) {
+        const nowStr = new Date().toLocaleDateString('id-ID') + ", " + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        if (mode === 'ADD') {
+            user.balance += amount;
+            user.transactions.unshift({
+                id: "TRX-" + Date.now(),
+                type: "CREDIT",
+                category: "Transfer",
+                title: "Setoran Tunai / Top Up Admin",
+                subtitle: "Penambahan Saldo Rekening",
+                amount: amount,
+                date: nowStr
+            });
+            user.notifications.unshift({
+                id: "NOTIF-" + Date.now(),
+                category: "Transaksi",
+                title: "Saldo Masuk Berhasil",
+                message: `Rekening ${user.accountNumber} menerima penambahan saldo sebesar ${formatRupiah(amount)}.`,
+                date: nowStr,
+                unread: true
+            });
+            showToast(`Berhasil menambah ${formatRupiah(amount)}`);
+        } else {
+            user.balance = amount;
+            user.transactions.unshift({
+                id: "TRX-" + Date.now(),
+                type: "CREDIT",
+                category: "Transfer",
+                title: "Penyesuaian Saldo Admin",
+                subtitle: "Update Saldo Rekening",
+                amount: amount,
+                date: nowStr
+            });
+            showToast(`Saldo diatur menjadi ${formatRupiah(amount)}`);
+        }
+        saveDatabase(db);
+        closeModal();
+        render();
+    }
+}
+
+// ----------------------------------------------------------------------------
+// 6. HALAMAN BERANDA (HOME DASHBOARD)
+// ----------------------------------------------------------------------------
+function renderHome() {
+    const user = getFreshCurrentUser();
+    if (!user) return renderLogin();
+
+    const menus = [
+        { id: 'transfer', icon: 'arrow-left-right', label: 'Transfer', color: 'bg-blue-50 text-[#00529B]' },
+        { id: 'payment', icon: 'receipt-text', label: 'Bayar', color: 'bg-sky-50 text-sky-600' },
+        { id: 'topup', icon: 'smartphone', label: 'Top Up', color: 'bg-indigo-50 text-indigo-600' },
+        { id: 'estatement', icon: 'file-spreadsheet', label: 'e-Statement', color: 'bg-teal-50 text-teal-600' },
+        { id: 'qris', icon: 'qr-code', label: 'QRIS', color: 'bg-blue-50 text-[#003B70]' },
+        { id: 'rekening', icon: 'credit-card', label: 'Rekening', color: 'bg-cyan-50 text-cyan-700' },
+        { id: 'investment', icon: 'trending-up', label: 'Investasi', color: 'bg-emerald-50 text-emerald-600' },
+        { id: 'help', icon: 'headphones', label: 'Bantuan', color: 'bg-amber-50 text-amber-600' }
+    ];
+
+    return `
+        <div class="flex-1 overflow-y-auto no-scrollbar bg-[#F4F6F9] pb-6 animate-fade-in">
+            <!-- Header Biru Gradient -->
+            <div class="bg-mybca-gradient text-white pt-6 pb-20 px-5 rounded-b-[32px] relative">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <span class="text-xl font-extrabold italic tracking-tight">MyBCA <span class="text-sky-300 font-bold not-italic text-sm">Android</span></span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="navigate('notifications')" class="relative p-1.5 bg-white/10 rounded-full">
+                            <i data-lucide="bell" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="logoutUser()" class="p-1.5 bg-white/10 rounded-full" title="Keluar">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div onclick="navigate('account')" class="flex items-center gap-2 cursor-pointer">
+                    <p class="text-sm text-sky-100">Halo, <b class="text-white">${user.fullName}</b></p>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-sky-200"></i>
+                </div>
+            </div>
+
+            <!-- Kartu Rekening Utama (Floating Card) -->
+            <div class="px-5 -mt-14">
+                <div class="bg-white rounded-2xl p-5 shadow-lg border border-slate-100">
+                    <div class="flex justify-between items-center text-xs text-slate-500 mb-1">
+                        <span>Rekening Utama (${user.product})</span>
+                        <button onclick="navigate('rekening')" class="text-[#00529B] font-semibold flex items-center gap-0.5">
+                            Detail <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="font-mono font-bold text-slate-700 text-sm tracking-wide">${user.accountNumber}</span>
+                        <button onclick="copyAccountNumber('${user.accountNumber}')" class="text-slate-400 hover:text-[#00529B]">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-100 flex justify-between items-end">
+                        <div>
+                            <span class="text-[11px] text-slate-400 block">Saldo Tersedia</span>
+                            <span class="text-2xl font-extrabold text-[#003B70] tracking-tight">
+                                ${appState.showBalance ? formatRupiah(user.balance) : 'Rp ••••••••'}
+                            </span>
+                        </div>
+                        <button onclick="appState.showBalance = !appState.showBalance; render();" class="p-2 bg-slate-50 rounded-xl text-slate-500">
+                            <i data-lucide="${appState.showBalance ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grid Menu Utama -->
+            <div class="px-5 mt-5">
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                    <div class="grid grid-cols-4 gap-y-4 gap-x-2">
+                        ${menus.map(m => `
+                            <button onclick="navigate('${m.id}')" class="flex flex-col items-center gap-1.5 group">
+                                <div class="w-12 h-12 rounded-2xl ${m.color} flex items-center justify-center group-active:scale-90 transition">
+                                    <i data-lucide="${m.icon}" class="w-5 h-5"></i>
+                                </div>
+                                <span class="text-[11px] font-semibold text-slate-700 text-center leading-tight">${m.label}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Banner Info -->
+            <div class="px-5 mt-5">
+                <div class="flex justify-between items-center mb-2.5">
+                    <h3 class="text-xs font-bold text-slate-700">Promo & Info</h3>
+                    <span class="text-[11px] text-[#00529B] font-semibold">Lihat Semua</span>
+                </div>
+                <div class="bg-card-gradient rounded-2xl p-4 text-white flex items-center justify-between shadow-md">
+                    <div class="pr-3">
+                        <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-semibold">TRANSFER REAL-TIME</span>
+                        <h4 class="text-sm font-bold mt-1.5">Kirim Dana Cukup Input No. Rekening</h4>
+                        <p class="text-[11px] text-sky-100 mt-1">Masukkan nomor rekening penerima untuk pengecekan data otomatis.</p>
+                        <button onclick="navigate('transfer')" class="mt-2.5 px-3.5 py-1.5 bg-white text-[#003B70] rounded-full text-[11px] font-bold">
+                            Transfer Sekarang
+                        </button>
+                    </div>
+                    <i data-lucide="send" class="w-12 h-12 text-sky-300 shrink-0 opacity-80"></i>
+                </div>
+            </div>
+
+            <!-- Transaksi Terakhir -->
+            <div class="px-5 mt-5">
+                <div class="flex justify-between items-center mb-2.5">
+                    <h3 class="text-xs font-bold text-slate-700">Mutasi Terakhir</h3>
+                    <button onclick="navigate('history')" class="text-[11px] text-[#00529B] font-semibold">Lihat Semua</button>
+                </div>
+                <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-100 divide-y divide-slate-100">
+                    ${user.transactions.slice(0, 3).map(t => `
+                        <div class="py-2.5 px-1 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl ${t.type === 'CREDIT' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'} flex items-center justify-center">
+                                    <i data-lucide="${t.type === 'CREDIT' ? 'arrow-down-left' : 'arrow-up-right'}" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-800">${t.title}</p>
+                                    <p class="text-[10px] text-slate-400">${t.date}</p>
+                                </div>
+                            </div>
+                            <span class="text-xs font-bold ${t.type === 'CREDIT' ? 'text-emerald-600' : 'text-rose-600'}">
+                                ${t.type === 'CREDIT' ? '+' : '-'}${formatRupiah(t.amount)}
+                            </span>
+                        </div>
+                    `).join('') || `<p class="text-center text-xs text-slate-400 py-4">Belum ada transaksi.</p>`}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function copyAccountNumber(acc) {
+    const temp = document.createElement('input');
+    temp.value = acc;
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand('copy');
+    document.body.removeChild(temp);
+    showToast(`Nomor rekening ${acc} disalin!`);
+}
+
+function logoutUser() {
+    appState.currentUser = null;
+    navigate('login');
+}
+
+// ----------------------------------------------------------------------------
+// 7. HALAMAN TRANSFER (INPUT NOMOR REKENING -> AUTO-LOOKUP DATA PENERIMA)
+// ----------------------------------------------------------------------------
+function renderTransfer() {
+    const user = getFreshCurrentUser();
+
+    if (appState.lastReceipt) {
+        const r = appState.lastReceipt;
+        const isAlreadyFav = user.favorites?.some(f => f.accountNumber === r.targetAccount);
+
+        return `
+            <div class="flex-1 bg-[#F4F6F9] flex flex-col justify-between p-5 overflow-y-auto no-scrollbar animate-fade-in">
+                <div class="bg-white rounded-3xl p-6 shadow-md border border-slate-100 text-center mt-4">
+                    <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i data-lucide="check" class="w-9 h-9"></i>
+                    </div>
+                    <h2 class="text-lg font-extrabold text-slate-800">Transfer Berhasil</h2>
+                    <p class="text-[11px] text-slate-400 mt-0.5">${r.date}</p>
+
+                    <div class="my-5 py-4 border-y border-dashed border-slate-200">
+                        <span class="text-xs text-slate-400 block">Nominal Transaksi</span>
+                        <span class="text-2xl font-extrabold text-[#003B70]">${formatRupiah(r.amount)}</span>
+                    </div>
+
+                    <div class="space-y-2.5 text-left text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Penerima</span>
+                            <span class="font-bold text-slate-800 text-right">${r.targetName}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Nomor Tujuan</span>
+                            <span class="font-mono font-semibold text-slate-700">${r.targetAccount}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Biaya Admin</span>
+                            <span class="font-semibold text-emerald-600">Rp 0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Berita</span>
+                            <span class="font-semibold text-slate-700">${r.note || '-'}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">No. Referensi</span>
+                            <span class="font-mono text-[11px] text-slate-500">${r.refId}</span>
+                        </div>
+                    </div>
+
+                    ${!isAlreadyFav && r.isInternal ? `
+                        <button onclick="saveToFavorites('${r.targetAccount}', '${r.targetName.replace(/'/g, "")}')" 
+                            class="mt-5 w-full py-2.5 bg-blue-50 text-[#00529B] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5">
+                            <i data-lucide="star" class="w-4 h-4"></i> Simpan ke Daftar Rekening Favorit
+                        </button>
+                    ` : ''}
+                </div>
+
+                <button onclick="appState.lastReceipt = null; navigate('home');" class="w-full py-3.5 bg-[#00529B] text-white font-bold rounded-full shadow-lg text-sm mt-4">
+                    Selesai
+                </button>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="flex-1 flex flex-col bg-[#F4F6F9] overflow-hidden">
+            <div class="bg-mybca-gradient text-white px-5 py-4 flex items-center gap-3 shrink-0">
+                <button onclick="navigate('home')" class="p-1"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <h2 class="text-base font-bold">Transfer ke Rekening</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar animate-fade-in">
+                <!-- Form Input Nomor Rekening Manual & Auto Lookup -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+                    <div>
+                        <label class="text-xs font-bold text-slate-700 block mb-1.5">Masukkan Nomor Rekening Tujuan</label>
+                        <div class="relative">
+                            <input type="text" id="tf-acc" inputmode="numeric" oninput="checkTargetAccount()" placeholder="Ketik nomor rekening penerima..." 
+                                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold focus:outline-none focus:border-[#003B70]">
+                        </div>
+                        
+                        <!-- Box Hasil Pengecekan Data Pemilik Rekening -->
+                        <div id="tf-lookup-card" class="hidden mt-2.5 p-3 rounded-xl border transition-all"></div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-xs mb-1.5">
+                            <label class="font-bold text-slate-700">Nominal Transfer</label>
+                            <span class="text-slate-400">Saldo: ${formatRupiah(user.balance)}</span>
+                        </div>
+                        <input type="number" id="tf-amount" placeholder="Minimal Rp 1.000" 
+                            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base font-extrabold text-[#003B70] focus:outline-none focus:border-[#003B70]">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold text-slate-700 block mb-1.5">Berita (Opsional)</label>
+                        <input type="text" id="tf-note" placeholder="Contoh: Transfer dana" 
+                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#003B70]">
+                    </div>
+
+                    <button onclick="confirmTransferModal()" class="w-full py-3.5 bg-[#00529B] hover:bg-[#003B70] text-white font-bold rounded-full shadow-md text-sm mt-2 transition">
+                        Lanjut Transfer
+                    </button>
+                </div>
+
+                <!-- Daftar Rekening Favorit yang Pernah Disimpan User -->
+                ${user.favorites && user.favorites.length > 0 ? `
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                        <h3 class="text-xs font-bold text-slate-700 mb-2.5">Daftar Rekening Favorit</h3>
+                        <div class="space-y-2">
+                            ${user.favorites.map(fav => `
+                                <button onclick="document.getElementById('tf-acc').value='${fav.accountNumber}'; checkTargetAccount();" 
+                                    class="w-full p-2.5 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 flex items-center justify-between text-left transition">
+                                    <div>
+                                        <p class="text-xs font-bold text-slate-800">${fav.name}</p>
+                                        <p class="text-[11px] font-mono text-[#00529B]">${fav.accountNumber}</p>
+                                    </div>
+                                    <span class="text-[10px] font-semibold text-[#00529B] bg-blue-100 px-2.5 py-1 rounded-full">Pilih</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+// Pencarian Otomatis Pemilik Rekening Saat User Mengetik Nomor Rekening
+function checkTargetAccount() {
+    const acc = document.getElementById('tf-acc')?.value.trim();
+    const card = document.getElementById('tf-lookup-card');
+    if (!card) return;
+
+    if (!acc || acc.length < 4) {
+        card.classList.add('hidden');
+        return;
+    }
+
+    const db = loadDatabase();
+    const currentUser = getFreshCurrentUser();
+
+    if (acc === currentUser.accountNumber) {
+        card.className = "mt-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs";
+        card.innerHTML = `<b>Tidak Valid:</b> Anda tidak dapat mentransfer ke rekening Anda sendiri.`;
+        card.classList.remove('hidden');
+        return;
+    }
+
+    // Cari di seluruh database pengguna berdasarkan nomor rekening (termasuk akun baru maupun akun aktif)
+    const found = db.users.find(u => u.accountNumber === acc);
+
+    if (found) {
+        card.className = "mt-2.5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-slate-800 animate-fade-in";
+        card.innerHTML = `
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Rekening Ditemukan</span>
+                    <p class="text-sm font-extrabold text-slate-900 mt-0.5">${found.fullName}</p>
+                    <p class="text-[11px] text-slate-600">${found.product} • ${found.accountNumber}</p>
+                </div>
+                <div class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">
+                    ✓
+                </div>
+            </div>
+        `;
+        card.classList.remove('hidden');
+    } else {
+        card.className = "mt-2.5 p-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 text-xs";
+        card.innerHTML = `Nomor rekening belum terdaftar di sistem MyBCA Android.`;
+        card.classList.remove('hidden');
+    }
+}
+
+function saveToFavorites(acc, name) {
+    const db = loadDatabase();
+    const user = db.users.find(u => u.id === appState.currentUser.id);
+    if (user) {
+        if (!user.favorites) user.favorites = [];
+        if (!user.favorites.some(f => f.accountNumber === acc)) {
+            user.favorites.push({ accountNumber: acc, name });
+            saveDatabase(db);
+            showToast("Rekening disimpan ke Daftar Favorit!");
+            render();
+        }
+    }
+}
+
+function confirmTransferModal() {
+    const user = getFreshCurrentUser();
+    if (!user.cardActive) {
+        showToast("Kartu/Rekening Anda sedang dinonaktifkan di Pengaturan Kartu!");
+        return;
+    }
+    const targetAcc = document.getElementById('tf-acc')?.value.trim();
+    const amount = Number(document.getElementById('tf-amount')?.value);
+    const note = document.getElementById('tf-note')?.value.trim();
+
+    if (!targetAcc || targetAcc === user.accountNumber) {
+        showToast("Nomor rekening tujuan tidak valid!");
+        return;
+    }
+
+    const db = loadDatabase();
+    const receiver = db.users.find(u => u.accountNumber === targetAcc);
+
+    if (!receiver) {
+        showToast("Nomor rekening tujuan tidak ditemukan!");
+        return;
+    }
+
+    if (!amount || amount < 1000) {
+        showToast("Nominal transfer minimal Rp 1.000!");
+        return;
+    }
+    if (amount > user.cardLimit) {
+        showToast(`Nominal melebihi limit transaksi harian (${formatRupiah(user.cardLimit)})!`);
+        return;
+    }
+    if (amount > user.balance) {
+        showToast("Saldo tidak mencukupi!");
+        return;
+    }
+
+    openModal(`
+        <div>
+            <h3 class="text-base font-bold text-slate-800 text-center">Konfirmasi Transfer</h3>
+            <div class="bg-slate-50 p-3.5 rounded-2xl my-3 space-y-2 text-xs">
+                <div class="flex justify-between"><span class="text-slate-400">Nama Penerima</span><b class="text-slate-800">${receiver.fullName}</b></div>
+                <div class="flex justify-between"><span class="text-slate-400">No. Rekening</span><b class="font-mono">${receiver.accountNumber}</b></div>
+                <div class="flex justify-between"><span class="text-slate-400">Produk</span><span>${receiver.product}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Nominal</span><b class="text-[#003B70] text-sm">${formatRupiah(amount)}</b></div>
+            </div>
+            <label class="text-xs font-semibold text-slate-600 block mb-1 text-center">Masukkan 6-Digit PIN Transaksi</label>
+            <input type="password" id="confirm-tx-pin" maxlength="6" inputmode="numeric" placeholder="••••••" 
+                class="w-full text-center tracking-[0.5em] text-lg font-bold py-2.5 border border-slate-300 rounded-xl mb-4">
+            <div class="flex gap-2">
+                <button onclick="closeModal()" class="flex-1 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold">Batal</button>
+                <button onclick="executeTransfer('${receiver.accountNumber}', ${amount}, '${note.replace(/'/g, "")}')" 
+                    class="flex-1 py-2.5 bg-[#00529B] text-white rounded-xl text-xs font-bold">Kirim Sekarang</button>
+            </div>
+        </div>
+    `);
+}
+
+function executeTransfer(targetAcc, amount, note) {
+    const pinInput = document.getElementById('confirm-tx-pin')?.value;
+    const db = loadDatabase();
+    const sender = db.users.find(u => u.id === appState.currentUser.id);
+    const receiver = db.users.find(u => u.accountNumber === targetAcc);
+
+    if (!sender || !receiver) {
+        showToast("Terjadi kesalahan data rekening!");
+        return;
+    }
+
+    if (pinInput !== sender.pin) {
+        showToast("PIN Transaksi salah!");
+        return;
+    }
+
+    const nowDate = new Date().toLocaleDateString('id-ID');
+    const nowTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const fullTimestamp = `${nowDate}, ${nowTime}`;
+    const refId = "REF" + Date.now().toString().slice(-8);
+
+    // 1. Kurangi saldo pengirim & catat mutasi DEBIT
+    sender.balance = Number(sender.balance) - Number(amount);
+    sender.transactions.unshift({
+        id: "TRX-" + Date.now(),
+        type: "DEBIT",
+        category: "Transfer",
+        title: `Transfer ke ${receiver.fullName}`,
+        subtitle: note || `Rek: ${receiver.accountNumber}`,
+        amount: Number(amount),
+        date: fullTimestamp
+    });
+    sender.notifications.unshift({
+        id: "NOTIF-" + Date.now(),
+        category: "Transaksi",
+        title: "Transfer Berhasil",
+        message: `Transfer sebesar ${formatRupiah(amount)} ke ${receiver.fullName} (${receiver.accountNumber}) berhasil.`,
+        date: fullTimestamp,
+        unread: true
+    });
+
+    // 2. Tambahkan saldo penerima secara REAL-TIME & catat mutasi CREDIT + Notifikasi
+    receiver.balance = Number(receiver.balance) + Number(amount);
+    receiver.transactions.unshift({
+        id: "TRX-" + (Date.now() + 1),
+        type: "CREDIT",
+        category: "Transfer",
+        title: `Transfer dari ${sender.fullName}`,
+        subtitle: note || `Rek: ${sender.accountNumber}`,
+        amount: Number(amount),
+        date: fullTimestamp
+    });
+    receiver.notifications.unshift({
+        id: "NOTIF-" + (Date.now() + 1),
+        category: "Transaksi",
+        title: "Dana Masuk Rekening",
+        message: `Anda menerima transfer sebesar ${formatRupiah(amount)} dari ${sender.fullName} (${sender.accountNumber}).`,
+        date: fullTimestamp,
+        unread: true
+    });
+
+    saveDatabase(db);
+    closeModal();
+    appState.lastReceipt = {
+        targetName: receiver.fullName,
+        targetAccount: receiver.accountNumber,
+        amount: Number(amount),
+        note,
+        refId,
+        isInternal: true,
+        date: `${fullTimestamp} WIB`
+    };
+    render();
+}
+
+// ----------------------------------------------------------------------------
+// 8. HALAMAN PEMBAYARAN (BAYAR) & TOP UP E-WALLET
+// ----------------------------------------------------------------------------
+function renderPayment() {
+    const services = [
+        { name: 'Listrik PLN', icon: 'zap', color: 'text-amber-500 bg-amber-50' },
+        { name: 'Pulsa Seluler', icon: 'smartphone', color: 'text-blue-600 bg-blue-50' },
+        { name: 'Paket Data', icon: 'wifi', color: 'text-sky-600 bg-sky-50' },
+        { name: 'BPJS Kesehatan', icon: 'heart-pulse', color: 'text-emerald-600 bg-emerald-50' },
+        { name: 'PDAM Air', icon: 'droplets', color: 'text-cyan-600 bg-cyan-50' },
+        { name: 'Internet & TV', icon: 'tv', color: 'text-indigo-600 bg-indigo-50' },
+        { name: 'Pendidikan', icon: 'graduation-cap', color: 'text-purple-600 bg-purple-50' },
+        { name: 'Donasi / Zakat', icon: 'hand-heart', color: 'text-rose-600 bg-rose-50' }
+    ];
+
+    return `
+        <div class="flex-1 flex flex-col bg-[#F4F6F9] overflow-hidden">
+            <div class="bg-mybca-gradient text-white px-5 py-4 flex items-center gap-3 shrink-0">
+                <button onclick="navigate('home')" class="p-1"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <h2 class="text-base font-bold">Pembayaran Tagihan</h2>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar animate-fade-in">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 class="text-xs font-bold text-slate-700 mb-3">Pilih Layanan Pembayaran</h3>
+                    <div class="grid grid-cols-4 gap-3">
+                        ${services.map(s => `
+                            <button onclick="openBillPayModal('${s.name}', 'Pembayaran')" class="flex flex-col items-center gap-1.5">
+                                <div class="w-12 h-12 rounded-2xl ${s.color} flex items-center justify-center">
+                                    <i data-lucide="${s.icon}" class="w-5 h-5"></i>
+                                </div>
+                                <span class="text-[10px] font-semibold text-slate-700 text-center">${s.name}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderTopUp() {
+    const wallets = [
+        { name: 'DANA', color: 'bg-sky-500 text-white' },
+        { name: 'GoPay', color: 'bg-emerald-500 text-white' },
+        { name: 'OVO', color: 'bg-purple-600 text-white' },
+        { name: 'ShopeePay', color: 'bg-orange-500 text-white' },
+        { name: 'LinkAja', color: 'bg-red-600 text-white' },
+        { name: 'Flazz BCA', color: 'bg-[#003B70] text-white' }
+    ];
+
+    return `
+        <div class="flex-1 flex flex-col bg-[#F4F6F9] overflow-hidden">
+            <div class="bg-mybca-gradient text-white px-5 py-4 flex items-center gap-3 shrink-0">
+                <button onclick="navigate('home')" class="p-1"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <h2 class="text-base font-bold">Top Up e-Wallet</h2>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar animate-fade-in">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 class="text-xs font-bold text-slate-700 mb-3">Pilih Dompet Digital</h3>
+                    <div class="grid grid-cols-3 gap-3">
+                        ${wallets.map(w => `
+                            <button onclick="openBillPayModal('${w.name}', 'Top Up')" class="p-3 rounded-2xl border border-slate-100 hover:border-[#00529B] flex flex-col items-center gap-2 transition">
+                                <div class="w-10 h-10 rounded-xl ${w.color} font-extrabold text-xs flex items-center justify-center">
+                                    ${w.name.slice(0,2).toUpperCase()}
+                                </div>
+                                <span class="text-xs font-bold text-slate-700">${w.name}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function openBillPayModal(serviceName, category) {
+    openModal(`
+        <div>
+            <h3 class="text-base font-bold text-slate-800">${category} ${serviceName}</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Transaksi digital instan</p>
+            <div class="mt-3 space-y-3">
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Nomor Pelanggan / No. HP</label>
+                    <input type="text" id="bill-number" placeholder="08123456789" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">Nominal (Rp)</label>
+                    <input type="number" id="bill-amount" value="50000" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm font-bold">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 block mb-1">PIN Transaksi (6 Digit)</label>
+                    <input type="password" id="bill-pin" maxlength="6" inputmode="numeric" placeholder="••••••" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm tracking-widest text-center font-bold">
+                </div>
+            </div>
+            <div class="flex gap-2 mt-5">
+                <button onclick="closeModal()" class="flex-1 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold">Batal</button>
+                <button onclick="executeBillPayment('${serviceName}', '${category}')" class="flex-1 py-2.5 bg-[#00529B] text-white rounded-xl text-xs font-bold">Bayar</button>
+            </div>
+        </div>
+    `);
+}
+
+function executeBillPayment(serviceName, category) {
+    const num = document.getElementById('bill-number')?.value.trim();
+    const amount = Number(document.getElementById('bill-amount')?.value);
+    const pin = document.getElementById('bill-pin')?.value;
+
+    const db = loadDatabase();
+    const user = db.users.find(u => u.id === appState.currentUser.id);
+
+    if (!user.cardActive) {
+        showToast("Kartu sedang dinonaktifkan!");
+        return;
+    }
+    if (!num || amount <= 0) {
+        showToast("Lengkapi nomor tujuan dan nominal!");
+        return;
+    }
+    if (pin !== user.pin) {
+        showToast("PIN Transaksi salah!");
+        return;
+    }
+    if (amount > user.balance) {
+        showToast("Saldo tidak mencukupi!");
+        return;
+    }
+
+    const nowStr = new Date().toLocaleDateString('id-ID') + ", " + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    user.balance -= amount;
+    user.transactions.unshift({
+        id: "TRX-" + Date.now(),
+        type: "DEBIT",
+        category: category,
+        title: `${category} ${serviceName}`,
+        subtitle: `No: ${num}`,
+        amount: amount,
+        date: nowStr
+    });
+    user.notifications.unshift({
+        id: "NOTIF-" + Date.now(),
+        category: "Transaksi",
+        title: `${category} ${serviceName} Berhasil`,
+        message: `Transaksi sebesar ${formatRupiah(amount)} untuk ${num} telah berhasil.`,
+        date: nowStr,
+        unread: true
+    });
+
+    saveDatabase(db);
+    closeModal();
+    appState.lastReceipt = {
+        targetName: `${category} ${serviceName}`,
+        targetAccount: num,
+        amount,
+        note: 'Pembayaran Digital',
+        refId: "PAY" + Date.now().toString().slice(-7),
+        isInternal: false,
+        date: `${nowStr} WIB`
+    };
+    navigate('transfer');
+}
+
+// ----------------------------------------------------------------------------
+// 9. HALAMAN QRIS (SCANNER & TAMPILKAN QR)
+// ----------------------------------------------------------------------------
+function renderQRIS() {
+    const user = getFreshCurrentUser();
+    const mode = appState.qrisMode || 'scan';
+
+    return `
+        <div class="flex-1 flex flex-col bg-slate-900 text-white overflow-hidden">
+            <div class="px-5 py-4 flex items-center justify-between bg-mybca-gradient shrink-0">
+                <button onclick="navigate('home')" class="p-1"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <h2 class="text-base font-bold">QRIS MyBCA Android</h2>
+                <div class="w-6"></div>
+            </div>
+
+            <div class="p-3 bg-slate-800 flex gap-2">
+                <button onclick="appState.qrisMode='scan'; render();" class="flex-1 py-2 rounded-xl text-xs font-bold ${mode === 'scan' ? 'bg-white text-[#003B70]' : 'text-slate-300'}">Scan QR</button>
+                <button onclick="appState.qrisMode='show'; render();" class="flex-1 py-2 rounded-xl text-xs font-bold ${mode === 'show' ? 'bg-white text-[#003B70]' : 'text-slate-300'}">Tampilkan QR Saya</button>
+            </div>
+
+            <div class="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+                ${mode === 'scan' ? `
+                    <div class="w-60 h-60 border-2 border-sky-400 rounded-3xl relative flex items-center justify-center bg-slate-800/70 mb-6">
+                        <div class="w-48 h-0.5 bg-sky-400 animate-bounce"></div>
+                        <i data-lucide="scan-line" class="w-24 h-24 text-sky-400/40 absolute"></i>
+                    </div>
+                    <p class="text-xs text-slate-300 mb-4">Arahkan kamera ke kode QRIS Merchant untuk membayar</p>
+                    <button onclick="openBillPayModal('Merchant QRIS', 'Pembayaran')" class="px-6 py-3 bg-[#00529B] rounded-full text-xs font-bold shadow-lg">
+                        Simulasi Scan QR Merchant
+                    </button>
+                ` : `
+                    <div class="bg-white text-slate-800 p-6 rounded-3xl shadow-xl w-full max-w-[280px]">
+                        <p class="text-xs font-extrabold text-[#003B70] mb-1">QRIS TRANSFER MASUK</p>
+                        <p class="text-sm font-bold">${user.fullName}</p>
+                        <p class="text-xs font-mono text-slate-500 mb-4">${user.accountNumber}</p>
+                        <div class="w-44 h-44 mx-auto bg-slate-100 rounded-2xl flex items-center justify-center border-2 border-slate-800">
+                            <i data-lucide="qr-code" class="w-36 h-36 text-slate-900"></i>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-3">Tunjukkan QR ini untuk menerima transfer sesama pengguna</p>
+                    </div>
+                `}
+            </div>
+        </div>
+    `;
+}
+
+// ----------------------------------------------------------------------------
+// 10. HALAMAN RIWAYAT MUTASI & NOTIFIKASI
+// ----------------------------------------------------------------------------
+function renderHistory() {
+    const user = getFreshCurrentUser();
+    const filter = appState.historyFilter || 'Semua';
+    const list = filter === 'Semua' ? user.transactions : user.transactions.filter(t => t.category === filter);
+
+    return `
+        <div class="flex-1 flex flex-col bg-[#F4F6F9] overflow-hidden">
+            <div class="bg-mybca-gradient text-white px-5 py-4 shrink-0">
+                <h2 class="text-base font-bold">Riwayat Transaksi</h2>
+                <div class="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
+                    ${['Semua', 'Transfer', 'Pembayaran', 'Top Up'].map(tab => `
+                        <button onclick="appState.historyFilter='${tab}'; render();" 
+                            class="px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 ${filter === tab ? 'bg-white text-[#003B70]' : 'bg-white/15 text-white'}">
+                            ${tab}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 space-y-2.5 no-scrollbar animate-fade-in">
+                ${list.length === 0 ? `<p class="text-center text-xs text-slate-400 py-10">Tidak ada riwayat transaksi pada kategori ini.</p>` : ''}
+                ${list.map(t => `
+                    <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl ${t.type === 'CREDIT' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'} flex items-center justify-center shrink-0">
+                                <i data-lucide="${t.type === 'CREDIT' ? 'arrow-down-left' : 'arrow-up-right'}" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold text-slate-800">${t.title}</p>
+                                <p class="text-[11px] text-slate-500">${t.subtitle}</p>
+                                <p class="text-[10px] text-slate-400 mt-0.5">${t.date}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-extrabold ${t.type === 'CREDIT' ? 'text-emerald-600' : 'text-rose-600'}">
+                            ${t.type === 'CREDIT' ? '+' : '-'}${formatRupiah(t.amount)}
+                        </span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function renderNotifications() {
+    const db = loadDatabase();
+    const user = db.users.find(u => u.id === appState.currentUser.id);
+    user.notifications.forEach(n => n.unread = false);
+    saveDatabase(db);
+
+    return `
+        <div class="flex-1 flex flex-col bg-[#F4F6F9] overflow-hidden">
+            <div class="bg-mybca-gradient text-white px-5 py-4 shrink-0">
+                <h2 class="text-base font-bold">Notifikasi</h2>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-2.5 no-scrollbar animate-fade-in">
+                ${user.notifications.map(n => `
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#00529B]">${n.category}</span>
+                            <span class="text-[10px] text-slate-400">${n.date}</span>
+                        </div>
+                        <h4 class="text-xs font-bold text-slate-800 mt-1">${n.title}</h4>
+                        <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">${n.message}</p>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// ----------------------------------------------------------------------------
+// 11. HALAMAN REKENING, PENGATURAN KARTU (LIMIT & BLOKIR), E-STATEMENT REAL-TIME
+// ----------------------------------------------------------------------------
+function renderRekening() {
+    const user = getFreshCurrentUser();
+    return `
+        <div class="flex-1 flex flex-col bg-[#F4F6F9] overflow-hidden">
+            <div class="bg-mybca-gradient text-white px-5 py-4 flex items-center gap-3 shrink-0">
+                <button onclick="navigate('home')" class="p-1"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <h2 class="text-base font-bold">Informasi Rekening</h2>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar animate-fade-in">
+                <div class="bg-card-gradient text-white p-5 rounded-3xl shadow-xl relative overflow-hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <span class="font-extrabold italic text-base">Paspor BCA Debit</span>
+                        <span class="text-[10px] bg-white/20 px-2.5 py-0.5 rounded-full">${user.cardActive ? 'AKTIF' : 'TERBLOKIR'}</span>
+                    </div>
+                    <p class="font-mono text-base tracking-widest mb-4">4512 •••• •••• ${user.accountNumber.slice(-4)}</p>
+                    <div class="flex justify-between items-end text-xs">
+                        <div>
+                            <span class="text-[10px] text-sky-200 block">Pemilik Kartu</span>
+                            <span class="font-bold uppercase">${user.fullName}</span>
+                        </div>
+                        <span class="font-mono text-xs">12/29</span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3 text-xs">
+                    <div class="flex justify-between py-1 border-b border-slate-100"><span class="text-slate-400">Jenis Tabungan</span><b>${user.product}</b></div>
+                    <div class="flex justify-between py-1 border-b border-slate-100"><span class="text-slate-400">Nomor Rekening</span><b class="font-mono">${user.accountNumber}</b></div>
+                    <div class="flex justify-between py-1 border-b border-slate-100"><span class="text-slate-400">Saldo Efektif</span><b class="text-[#003B70]">${formatRupiah(user.balance)}</b></div>
+                    <div class="flex justify-between py-1"><span class="text-slate-400">Limit Transaksi Harian</span><b>${formatRupiah(user.cardLimit)}</b></div>
+                </div>
+
+                <div class="bg-white rounded-2xl divide-y divide-slate-100 border border-slate-100 text-xs font-semibold">
+                    <button onclick="navigate('estatement')" class="w-full p-4 flex justify-between items-center">
+                        <span>e-Statement Rekening</span><i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+                    </button>
+                    <button onclick="navigate('card_settings')" class="w-full p-4 flex justify-between items-center">
+                        <span>Pengaturan Kartu & Limit</span><i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderCardSettings() {
+    const user = getFreshCurrentUser();
+    return `
+        <div class="flex-1 flex flex-col bg-[#F4F6F9] overflow-hidden">
+            <div class="bg-mybca-gradient text-white px-5 py-4 flex items-center gap-3 shrink-0">
+                <button onclick="navigate('rekening')" class="p-1"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <h2 class="text-base font-bold">Pengaturan Kartu</h2>
+            </div>
+            <div class="p-5 space-y-4 animate-fade-in">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-800">Status Kartu Debit</h4>
+                        <p class="text-[11px] text-slate-400">Nonaktifkan sementara untuk memblokir transaksi</p>
+                    </div>
+                    <button onclick="toggleCardStatus()" class="px-4 py-2 rounded-full text-xs font-bold ${user.cardActive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                        ${user.cardActive ? 'Aktif' : 'Nonaktif'}
+                    </button>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-800">Atur Limit Transfer Harian</h4>
+                        <p class="text-[11px] text-slate-400">Saat ini: <b>${formatRupiah(user.cardLimit)}</b></p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        ${[5000000, 15000000, 50000000].map(lim => `
+                            <button onclick="updateCardLimit(${lim})" class="py-2 rounded-xl border text-xs font-bold ${user.cardLimit === lim ? 'bg-[#003B70] text-white border-[#003B70]' : 'bg-slate-50 text-slate-700 border-slate-200'}">
+                                ${lim / 1000000} Juta
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function toggleCardStatus() {
+    const db = loadDatabase();
+    const user = db.users.find(u => u.id === appState.currentUser.id);
+    user.cardActive = !user.cardActive;
+    saveDatabase(db);
+    showToast(user.cardActive ? "Kartu berhasil diaktifkan kembali" : "Kartu sementara dinonaktifkan");
+    render();
+}
+
+function updateCardLimit(newLimit) {
+    const db = loadDatabase();
+    const user = db.users.find(u => u.id === appState.currentUser.id);
+    user.cardLimit = newLimit;
+    saveDatabase(db);
+    showToast(`Limit transfer harian diubah menjadi ${formatRupiah(newLimit)}`);
+    render();
+}
+
+// ----------------------------------------------------------------------------
+// E-STATEMENT REAL-TIME DOWNLOAD (GENERATE FILE CSV & LAPORAN HTML ASLI)
+// ----------------------------------------------------------------------------
+function renderEStatement() {
+    const user = getFreshCurrentUser();
+    const periods = ['1 Bulan', '3 Bulan', '6 Bulan'];
+
+    return `
+        <div class="flex-1 flex flex-col bg-[#F4F6F9] overflow-hidden">
+            <div class="bg-mybca-gradient text-white px-5 py-4 flex items-center gap-3 shrink-0">
+                <button onclick="navigate('home')" class="p-1"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <h2 class="text-base font-bold">e-Statement Rekening</h2>
+            </div>
+            <div class="p-5 space-y-4 overflow-y-auto no-scrollbar animate-fade-in">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+                    <div>
+                        <span class="text-[11px] text-slate-400 block">Rekening Terpilih</span>
+                        <p class="text-sm font-bold text-slate-800">${user.product} - ${user.accountNumber}</p>
+                        <p class="text-xs text-slate-500">a.n. ${user.fullName}</p>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold text-slate-700 block mb-2">Pilih Periode Laporan</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            ${periods.map(p => `
+                                <button onclick="appState.estatementPeriod='${p}'; render();" 
+                                    class="py-2 rounded-xl text-xs font-bold border ${appState.estatementPeriod === p ? 'bg-[#003B70] text-white border-[#003B70]' : 'bg-slate-50 text-slate-600 border-slate-200'}">
+                                    ${p}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-3.5 rounded-xl text-xs space-y-1.5 border border-slate-200">
+                        <div class="flex justify-between"><span class="text-slate-500">Periode Mutasi</span><b>${appState.estatementPeriod} Terakhir</b></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Jumlah Transaksi</span><b>${user.transactions.length} Transaksi</b></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Saldo Akhir</span><b class="text-[#003B70]">${formatRupiah(user.balance)}</b></div>
+                    </div>
+
+                    <!-- Tombol Unduh File Real-Time -->
+                    <div class="space-y-2.5 pt-2">
+                        <button onclick="downloadRealEStatementHTML()" class="w-full py-3.5 bg-[#00529B] hover:bg-[#003B70] text-white rounded-full text-xs font-bold shadow-md flex items-center justify-center gap-2 transition">
+                            <i data-lucide="file-text" class="w-4 h-4"></i> Unduh e-Statement Dokumen (.HTML / Print PDF)
+                        </button>
+                        <button onclick="downloadRealEStatementCSV()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-bold shadow-sm flex items-center justify-center gap-2 transition">
+                            <i data-lucide="download" class="w-4 h-4"></i> Unduh Mutasi Excel (.CSV)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pratinjau Mutasi di Layar -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-100">
+                    <h3 class="text-xs font-bold text-slate-700 mb-3">Pratinjau Mutasi e-Statement</h3>
+                    <div class="space-y-2 divide-y divide-slate-100">
+                        ${user.transactions.length === 0 ? `<p class="text-xs text-slate-400 text-center py-3">Belum ada mutasi transaksi.</p>` : ''}
+                        ${user.transactions.map(t => `
+                            <div class="pt-2 flex justify-between items-center text-xs">
+                                <div>
+                                    <p class="font-bold text-slate-800">${t.title}</p>
+                                    <p class="text-[10px] text-slate-400">${t.date}</p>
+                                </div>
+                                <span class="font-bold ${t.type === 'CREDIT' ? 'text-emerald-600' : 'text-rose-600'}">
+                                    ${t.type === 'CREDIT' ? '+' : '-'}${formatRupiah(t.amount)}
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Fungsi Unduh File CSV Asli ke Perangkat
+function downloadRealEStatementCSV() {
+    const user = getFreshCurrentUser();
+    let csvRows = [
+        ["LAPORAN E-STATEMENT MYBCA ANDROID (SIMULASI PEMBELAJARAN)"],
+        ["Nama Nasabah", user.fullName],
+        ["Nomor Rekening", `'${user.accountNumber}`],
+        ["Jenis Tabungan", user.product],
+        ["Periode", appState.estatementPeriod],
+        ["Saldo Akhir", user.balance],
+        [],
+        ["ID Transaksi", "Tanggal & Waktu", "Kategori", "Keterangan", "Detail", "Tipe", "Nominal (Rp)"]
+    ];
+
+    user.transactions.forEach(t => {
+        csvRows.push([
+            t.id,
+            `"${t.date}"`,
+            t.category,
+            `"${t.title}"`,
+            `"${t.subtitle}"`,
+            t.type === 'CREDIT' ? 'Uang Masuk (CR)' : 'Uang Keluar (DB)',
+            t.amount
+        ]);
+    });
+
+    const csvContent = "\uFEFF" + csvRows.map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `eStatement_${user.accountNumber}_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast("File e-Statement (.CSV) berhasil diunduh!");
+}
+
+// Fungsi Unduh Dokumen e-Statement Lengkap Siap Cetak / PDF
+function downloadRealEStatementHTML() {
+    const user = getFreshCurrentUser();
+    const rowsHtml = user.transactions.map(t => `
+        <tr>
+            <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${t.date}</td>
+            <td style="padding:10px;border-bottom:1px solid #e2e8f0;"><b>${t.title}</b><br><small style="color:#64748b;">${t.subtitle}</small></td>
+            <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${t.type === 'CREDIT' ? 'CR' : 'DB'}</td>
+            <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:bold;color:${t.type === 'CREDIT' ? '#059669' : '#e11d48'};">
+                ${t.type === 'CREDIT' ? '+' : '-'}${formatRupiah(t.amount)}
+            </td>
+        </tr>
+    `).join('') || `<tr><td colspan="4" style="padding:20px;text-align:center;color:#94a3b8;">Belum ada transaksi</td></tr>`;
+
+    const docHtml = `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>e-Statement ${user.accountNumber}</title>
+<style>
+    body { font-family: Arial, sans-serif; color: #1e293b; padding: 30px; max-width: 800px; margin: auto; }
+    .header { background: #003B70; color: white; padding: 20px 25px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .info { margin: 20px 0; background: #f8fafc; padding: 15px 20px; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13px; line-height: 1.7; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 15px; }
+    th { background: #f1f5f9; text-align: left; padding: 10px; border-bottom: 2px solid #cbd5e1; }
+</style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h2 style="margin:0;font-style:italic;">MyBCA Android</h2>
+            <small>e-Statement Rekening (Simulasi Pembelajaran)</small>
+        </div>
+        <div style="text-align:right;font-size:12px;">
+            Dicetak pada:<br><b>${new Date().toLocaleString('id-ID')}</b>
+        </div>
+    </div>
+    <div class="info">
+        <b>Nama Nasabah:</b> ${user.fullName}<br>
+        <b>Nomor Rekening:</b> ${user.accountNumber} (${user.product})<br>
+        <b>Periode Laporan:</b> ${appState.estatementPeriod} Terakhir<br>
+        <b>Saldo Akhir Tersedia:</b> <span style="color:#003B70;font-weight:bold;">${formatRupiah(user.balance)}</span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Tanggal</th>
+                <th>Keterangan Transaksi</th>
+                <th>Mutasi</th>
+                <th style="text-align:right;">Nominal</th>
+            </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+    </table>
+    <p style="font-size:11px;color:#94a3b8;margin-top:30px;text-align:center;">Dokumen ini dihasilkan secara otomatis oleh sistem simulasi pembelajaran MyBCA Android.</p>
+</body>
+</html>`;
+
+    const blob = new Blob([docHtml], { type: 'text/html;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `eStatement_MyBCA_${user.accountNumber}.html`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast("Dokumen e-Statement berhasil diunduh ke perangkat!");
+}
+
+function renderInvestment() {
+    return `
+        <div class="flex-1 flex flex-col bg-[#F4F6F9] overflow-hidden">
+            <div class="bg-mybca-gradient text-white px-5 py-4 flex items-center gap-3 shrink-0">
+                <button onclick="navigate('home')" class="p-1"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <h2 class="text-base font-bold">Investasi</h2>
+            </div>
+            <div class="p-5 space-y-3 animate-fade-in">
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 text-center">
+                    <i data-lucide="trending-up" class="w-12 h-12 text-emerald-600 mx-auto mb-2"></i>
+                    <h3 class="text-sm font-bold text-slate-800">Reksa Dana, Obligasi & SBN</h3>
+                    <p class="text-xs text-slate-500 mt-1">Modul pengenalan instrumen investasi pasar uang, obligasi negara, dan reksa dana indeks.</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderAccount() {
+    const user = getFreshCurrentUser();
+    return `
+        <div class="flex-1 flex flex-col bg-[#F4F6F9] overflow-hidden">
+            <div class="bg-mybca-gradient text-white px-5 py-6 text-center shrink-0">
+                <div class="w-16 h-16 rounded-full bg-white text-[#003B70] font-extrabold text-xl flex items-center justify-center mx-auto mb-2">
+                    ${user.fullName.charAt(0).toUpperCase()}
+                </div>
+                <h2 class="text-base font-bold">${user.fullName}</h2>
+                <p class="text-xs text-sky-200">BCA ID: ${user.userId} • Rek: ${user.accountNumber}</p>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-5 space-y-3 no-scrollbar animate-fade-in">
+                <div class="bg-white rounded-2xl p-4 border border-slate-100 space-y-2.5 text-xs">
+                    <div class="flex justify-between"><span class="text-slate-400">Tempat/Tgl Lahir</span><b>${user.birthInfo}</b></div>
+                    <div class="flex justify-between"><span class="text-slate-400">No. Handphone</span><b>${user.phone}</b></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Pekerjaan</span><b>${user.job}</b></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Alamat</span><b class="text-right max-w-[180px]">${user.address}</b></div>
+                </div>
+
+                <div class="bg-white rounded-2xl divide-y divide-slate-100 border border-slate-100 text-xs font-semibold">
+                    <button onclick="navigate('help')" class="w-full p-4 flex justify-between items-center">
+                        <span>Pusat Bantuan & WhatsApp Admin</span><i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+                    </button>
+                    <button onclick="logoutUser()" class="w-full p-4 flex justify-between items-center text-rose-600">
+                        <span>Keluar dari Akun</span><i data-lucide="log-out" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderHelp() {
+    return `
+        <div class="flex-1 flex flex-col bg-[#F4F6F9] overflow-hidden">
+            <div class="bg-mybca-gradient text-white px-5 py-4 flex items-center gap-3 shrink-0">
+                <button onclick="navigate('home')" class="p-1"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <h2 class="text-base font-bold">Pusat Bantuan</h2>
+            </div>
+            <div class="p-5 space-y-4 overflow-y-auto no-scrollbar animate-fade-in">
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 space-y-3">
+                    <h3 class="text-xs font-bold text-slate-800">Pertanyaan Populer</h3>
+                    <div class="text-xs text-slate-600 space-y-2">
+                        <p><b>• Bagaimana cara aktivasi akun baru?</b><br>Setelah mendaftar, hubungi Admin via WhatsApp agar disetujui melalui Panel Admin.</p>
+                        <p><b>• Bagaimana cara transfer ke rekening lain?</b><br>Pilih menu Transfer, ketik nomor rekening penerima, dan nama pemilik rekening akan muncul otomatis.</p>
+                    </div>
+                    <a href="https://wa.me/${ADMIN_WA_NUMBER}" target="_blank" class="block w-full py-3 bg-emerald-600 text-white text-center rounded-full text-xs font-bold mt-2">
+                        Hubungi Admin WhatsApp (085603659730)
+                    </a>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Jalankan Aplikasi saat halaman selesai dimuat
+window.onload = function() {
+    loadDatabase();
+    render();
+};
+</script>
+</body>
+</html>
